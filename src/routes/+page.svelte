@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { CanvasRenderer } from '$lib/canvas.svelte';
+	import ColorPicker from '$lib/ColorPicker.svelte';
 
 	let canvas: HTMLCanvasElement | undefined = $state();
 	let renderer = new CanvasRenderer();
@@ -18,7 +19,17 @@
 	onmousedown={(ev) => renderer.click(ev)}
 	ontouchstart={(ev) => renderer.click(ev)}
 ></canvas>
+
+<div popover="auto" id="picker">
+	<ColorPicker
+		onchange={(color) => {
+			if (!renderer.selectedElement) return;
+			renderer.selectedElement.color = color;
+		}}
+	/>
+</div>
 <div class="controls">
+	<button popovertarget="picker">picker</button>
 	<button class:selected={renderer.mode === 'rect'} onclick={() => (renderer.mode = 'rect')}>
 		rect
 	</button>
@@ -33,6 +44,16 @@
 	</button>
 	<button class:selected={renderer.mode === 'select'} onclick={() => (renderer.mode = 'select')}>
 		select
+	</button>
+	<button class:selected={renderer.mode === 'erase'} onclick={() => (renderer.mode = 'erase')}>
+		erase
+	</button>
+	<button disabled={renderer.historyPosition <= 0} onclick={() => renderer.undo()}>undo</button>
+	<button
+		disabled={renderer.historyPosition >= renderer.history.length}
+		onclick={() => renderer.redo()}
+	>
+		redo
 	</button>
 </div>
 
