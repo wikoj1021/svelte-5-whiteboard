@@ -1,3 +1,4 @@
+import type { Mouse } from "@playwright/test";
 
 class Position {
     x = $state(0);
@@ -125,6 +126,10 @@ export class FreeDraw extends CanvasElement {
 
 export type Mode = 'select' | 'drag' | 'rect' | 'freedraw'
 
+const getPosFromEvent = (ev: MouseEvent | TouchEvent) => {
+    return ev instanceof MouseEvent ? { x: ev.offsetX, y: ev.offsetY } : { x: ev.targetTouches[0].clientX, y: ev.targetTouches[0].clientY }
+}
+
 export class CanvasRenderer {
     canvas: HTMLCanvasElement | undefined = $state();
     ctx: CanvasRenderingContext2D | undefined = $derived(this.canvas?.getContext('2d') ?? undefined)
@@ -150,30 +155,40 @@ export class CanvasRenderer {
         })
     }
 
-    #createRect(ev: MouseEvent) {
+    #createRect(ev: MouseEvent | TouchEvent) {
         const newRect = new Rectangle();
 
-        newRect.x = ev.offsetX - this.position.x;
-        newRect.y = ev.offsetY - this.position.y;
+        const isTouch = ev instanceof TouchEvent;
+        const pos = getPosFromEvent(ev)
 
-        const startX = ev.offsetX;
-        const startY = ev.offsetY;
+        newRect.x = pos.x - this.position.x;
+        newRect.y = pos.y - this.position.y;
+
+        const startX = pos.x;
+        const startY = pos.y;
 
         let frame: number | undefined;
+        let lastPos = pos;
 
-        const drag = (ev: MouseEvent) => {
-            if (ev.offsetX < startX) {
-                newRect.width -= ev.movementX;
-                newRect.x += ev.movementX;
+        const drag = (ev: MouseEvent | TouchEvent) => {
+            ev.preventDefault()
+            const newPos = getPosFromEvent(ev);
+            const dx = newPos.x - lastPos.x;
+            const dy = newPos.y - lastPos.y;
+            lastPos = newPos;
+
+            if (newPos.x < startX) {
+                newRect.width -= dx;
+                newRect.x += dx;
             } else {
-                newRect.width += ev.movementX;
+                newRect.width += dx;
             }
 
-            if (ev.offsetY < startY) {
-                newRect.height -= ev.movementY;
-                newRect.y += ev.movementY;
+            if (newPos.y < startY) {
+                newRect.height -= dy;
+                newRect.y += dy;
             } else {
-                newRect.height += ev.movementY;
+                newRect.height += dy;
             }
 
             if (frame) cancelAnimationFrame(frame);
@@ -181,29 +196,38 @@ export class CanvasRenderer {
             newRect.render(this.position, this.ctx as CanvasRenderingContext2D);
         }
 
-        this.canvas?.addEventListener('mousemove', drag);
-        this.canvas?.addEventListener('mouseup', () => {
-            this.canvas?.removeEventListener('mousemove', drag);
+        this.canvas?.addEventListener(isTouch ? 'touchmove' : 'mousemove', drag);
+        this.canvas?.addEventListener(isTouch ? 'touchend' : 'mouseup', () => {
+            this.canvas?.removeEventListener(isTouch ? 'touchmove' : 'mousemove', drag);
             this.elements.push(newRect);
         }, { once: true })
     }
 
-    #createFreedraw(ev: MouseEvent) {
+    #createFreedraw(ev: MouseEvent | TouchEvent) {
+
+        const isTouch = ev instanceof TouchEvent;
+        const startPos = getPosFromEvent(ev);
 
         const newFreedraw = new FreeDraw()
 
-        newFreedraw.start.x = ev.offsetX - this.position.x;
-        newFreedraw.start.y = ev.offsetY - this.position.y;
+        newFreedraw.start.x = startPos.x - this.position.x;
+        newFreedraw.start.y = startPos.y - this.position.y;
         newFreedraw.minX = 0;
         newFreedraw.maxX = 0;
         newFreedraw.minY = 0;
         newFreedraw.maxY = 0;
 
         let lastPoint = { x: 0, y: 0 }
+        let lastPos = startPos;
         newFreedraw.addPoint(lastPoint, this.ctx as CanvasRenderingContext2D, this.position);
-        let frame: number | undefined = undefined;
-        const drag = (ev: MouseEvent) => {
-            let point = { x: lastPoint.x + ev.movementX, y: lastPoint.y + ev.movementY }
+        const drag = (ev: MouseEvent | TouchEvent) => {
+            ev.preventDefault()
+            const newPos = getPosFromEvent(ev);
+            const dx = newPos.x - lastPos.x;
+            const dy = newPos.y - lastPos.y;
+            lastPos = newPos;
+
+            let point = { x: lastPoint.x + dx, y: lastPoint.y + dy }
             lastPoint = point
             newFreedraw.addPoint(point, this.ctx as CanvasRenderingContext2D, this.position)
 
@@ -214,46 +238,62 @@ export class CanvasRenderer {
             newFreedraw.maxY = Math.max(point.y, newFreedraw.maxY);
         }
 
-        this.canvas?.addEventListener('mousemove', drag);
-        this.canvas?.addEventListener('mouseup', () => {
-            this.canvas?.removeEventListener('mousemove', drag);
+        this.canvas?.addEventListener(isTouch ? 'touchmove' : 'mousemove', drag);
+        this.canvas?.addEventListener(isTouch ? 'touchend' : 'mouseup', () => {
+            this.canvas?.removeEventListener(isTouch ? 'touchmove' : 'mousemove', drag);
             this.elements.push(newFreedraw);
         }, { once: true })
 
     }
 
-    #dragCanvas() {
-        const drag = (ev: MouseEvent) => {
-            this.position.x += ev.movementX;
-            this.position.y += ev.movementY;
+    #dragCanvas(ev: MouseEvent | TouchEvent) {
+        const isTouch = ev instanceof TouchEvent;
+
+        let lastPos = getPosFromEvent(ev);
+        const drag = (ev: MouseEvent | TouchEvent) => {
+            ev.preventDefault();
+            const newPos = getPosFromEvent(ev);
+            const dx = newPos.x - lastPos.x;
+            const dy = newPos.y - lastPos.y;
+            lastPos = newPos;
+            this.position.x += dx;
+            this.position.y += dy;
         }
 
-        this.canvas?.addEventListener('mousemove', drag);
+        this.canvas?.addEventListener(isTouch ? 'touchmove' : 'mousemove', drag);
 
-        this.canvas?.addEventListener('mouseup', () => {
-            this.canvas?.removeEventListener('mousemove', drag);
+        this.canvas?.addEventListener(isTouch ? 'touchend' : 'mouseup', () => {
+            this.canvas?.removeEventListener(isTouch ? 'touchmove' : 'mousemove', drag);
         }, { once: true })
     }
 
-    #selection(ev: MouseEvent) {
+    #selection(ev: MouseEvent | TouchEvent) {
+        const isTouch = ev instanceof TouchEvent;
+        let lastPos = getPosFromEvent(ev);
+
         if (this.selectedElement) this.selectedElement.selected = false;
-        this.selectedElement = this.visibleElements.findLast((element) => element.checkClick(ev.offsetX, ev.offsetY, this.position))
+        this.selectedElement = this.visibleElements.findLast((element) => element.checkClick(lastPos.x, lastPos.y, this.position))
         if (this.selectedElement) this.selectedElement.selected = true;
 
         if (this.selectedElement) {
-            const drag = (ev: MouseEvent) => {
+            const drag = (ev: MouseEvent | TouchEvent) => {
+                ev.preventDefault();
                 if (!this.selectedElement) return;
-                this.selectedElement.drag(ev.movementX, ev.movementY)
+                const newPos = getPosFromEvent(ev);
+                const dx = newPos.x - lastPos.x;
+                const dy = newPos.y - lastPos.y;
+                lastPos = newPos;
+                this.selectedElement.drag(dx, dy)
             }
-            this.canvas?.addEventListener('mousemove', drag);
-            this.canvas?.addEventListener('mouseup', () => {
-                this.canvas?.removeEventListener('mousemove', drag);
+            this.canvas?.addEventListener(isTouch ? 'touchmove' : 'mousemove', drag);
+            this.canvas?.addEventListener(isTouch ? 'touchend' : 'mouseup', () => {
+                this.canvas?.removeEventListener(isTouch ? 'touchmove' : 'mousemove', drag);
             }, { once: true })
             return
         }
     }
 
-    click(ev: MouseEvent) {
+    click(ev: MouseEvent | TouchEvent) {
         switch (this.mode) {
             case 'rect':
                 this.#createRect(ev);
@@ -262,7 +302,7 @@ export class CanvasRenderer {
                 this.#selection(ev);
                 break;
             case "drag":
-                this.#dragCanvas();
+                this.#dragCanvas(ev);
                 break;
             case "freedraw":
                 this.#createFreedraw(ev)

@@ -16,6 +16,7 @@
 	width={renderer.width}
 	height={renderer.height}
 	onmousedown={(ev) => renderer.click(ev)}
+	ontouchstart={(ev) => renderer.click(ev)}
 ></canvas>
 <div class="controls">
 	<button class:selected={renderer.mode === 'rect'} onclick={() => (renderer.mode = 'rect')}>
