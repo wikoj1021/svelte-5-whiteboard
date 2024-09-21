@@ -23,7 +23,7 @@ const drawSelectionFrame = (
 
 abstract class CanvasElement {
 	selected: boolean = $state(false);
-	color: string = $state('#000');
+	color: string = $state('hwb(0 0% 100%)');
 	lineWidth = $state(1);
 
 	abstract render(position: Position, ctx: CanvasRenderingContext2D): void;
@@ -31,6 +31,8 @@ abstract class CanvasElement {
 	abstract checkClick(clickX: number, clickY: number, position: Position): boolean;
 	abstract drag(dx: number, dy: number): void;
 	abstract resize(dx: number, dy: number): void;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	abstract toJSON(): Record<string, any>;
 }
 
 export class Rectangle extends CanvasElement {
@@ -70,6 +72,25 @@ export class Rectangle extends CanvasElement {
 	resize(dx: number, dy: number): void {
 		throw new Error('Method not implemented.');
 	}
+
+	load(config: { x: number; y: number; width: number; height: number; color: string }) {
+		this.x = config.x;
+		this.y = config.y;
+		this.width = config.width;
+		this.height = config.height;
+		this.color = config.color;
+	}
+
+	toJSON() {
+		return {
+			type: 'rectangle',
+			x: this.x,
+			y: this.y,
+			width: this.width,
+			height: this.height,
+			color: this.color
+		};
+	}
 }
 
 type Point = { x: number; y: number };
@@ -108,7 +129,6 @@ export class FreeDraw extends CanvasElement {
 	render(position: Position, ctx: CanvasRenderingContext2D): void {
 		ctx.lineWidth = this.lineWidth;
 		ctx.strokeStyle = this.color;
-		console.log(this.color);
 		ctx.beginPath();
 		this.points.forEach((point, i) => {
 			const parsedPoint = this.parsePoint(point, position);
@@ -148,6 +168,37 @@ export class FreeDraw extends CanvasElement {
 	}
 	resize(dx: number, dy: number): void {
 		throw new Error('Method not implemented.');
+	}
+
+	load(config: {
+		start: Point;
+		points: Point[];
+		minX: number;
+		minY: number;
+		maxX: number;
+		maxY: number;
+		color: string;
+	}) {
+		this.start = config.start;
+		this.points = config.points;
+		this.maxX = config.maxX;
+		this.maxY = config.maxY;
+		this.minX = config.minX;
+		this.minY = config.minY;
+		this.color = config.color;
+	}
+
+	toJSON() {
+		return {
+			type: 'freedraw',
+			start: this.start,
+			points: this.points,
+			minX: this.minX,
+			minY: this.minY,
+			maxX: this.maxX,
+			maxY: this.maxY,
+			color: this.color
+		};
 	}
 }
 
@@ -524,5 +575,51 @@ export class CanvasRenderer {
 		this.visibleElements.forEach((element) => {
 			element.render(this.position, this.ctx as CanvasRenderingContext2D);
 		});
+	}
+
+	async load(
+		ev: Event & {
+			currentTarget: EventTarget & HTMLInputElement;
+		}
+	) {
+		const file = ev.currentTarget.files?.[0];
+		if (!file) {
+			console.error('No file');
+			return;
+		}
+
+		const elements = JSON.parse(await file.text());
+
+		this.position = { x: 0, y: 0, zoom: 1 };
+		this.currentColor = 'hwb(0 0% 100%)';
+		this.history = [];
+		this.historyPosition = 0;
+		this.#mode = 'rect';
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		this.elements = elements.map((element: any) => {
+			if (element.type === 'rectangle') {
+				const elem = new Rectangle();
+				elem.load(element);
+				return elem;
+			}
+
+			if (element.type === 'freedraw') {
+				const elem = new FreeDraw();
+				elem.load(element);
+				return elem;
+			}
+		});
+	}
+
+	save() {
+		const a = document.createElement('a');
+		const content = new Blob([JSON.stringify(this.elements)], { type: 'application/json' });
+		const url = URL.createObjectURL(content);
+		a.setAttribute('href', url);
+		a.setAttribute('download', 'data');
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
 	}
 }

@@ -59,6 +59,8 @@
 	>
 		redo
 	</button>
+	<button onclick={() => renderer.save()}> save </button>
+	<input type="file" onchange={(ev) => renderer.load(ev)} />
 </div>
 
 <style>
