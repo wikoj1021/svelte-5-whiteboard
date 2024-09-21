@@ -194,9 +194,22 @@ export class CanvasRenderer {
 		this.elements.filter((element) => element.isOnScreen(this.position, this.width, this.height))
 	);
 	selectedElement: CanvasElement | undefined = $state();
-	mode: Mode = $state('rect');
+	#mode: Mode = $state('rect');
 	history: HistoryEntry[] = $state([]);
 	historyPosition = $state(0);
+	currentColor = $state('hwb(0 0% 100%)');
+
+	set mode(mode: Mode) {
+		if (mode !== 'select') {
+			if (this.selectedElement) this.selectedElement.selected = false;
+			this.selectedElement = undefined;
+		}
+		this.#mode = mode;
+	}
+
+	get mode() {
+		return this.#mode;
+	}
 
 	constructor() {
 		$effect.root(() => {
@@ -214,14 +227,12 @@ export class CanvasRenderer {
 		if (this.historyPosition <= this.history.length) this.history.splice(this.historyPosition);
 		this.history.push(entry);
 		this.historyPosition++;
-		console.log(this.historyPosition, this.history.length, entry);
 	}
 
 	undo() {
 		if (this.historyPosition <= 0) return;
 		this.historyPosition--;
 		const entry = this.history[this.historyPosition];
-		console.log(this.historyPosition, this.history.length, entry);
 
 		switch (entry.action) {
 			case 'create':
@@ -243,7 +254,6 @@ export class CanvasRenderer {
 		if (this.historyPosition >= this.history.length) return;
 		const entry = this.history[this.historyPosition];
 		this.historyPosition++;
-		console.log(this.historyPosition, this.history.length, entry);
 
 		switch (entry.action) {
 			case 'create':
@@ -269,6 +279,7 @@ export class CanvasRenderer {
 
 		newRect.x = pos.x - this.position.x;
 		newRect.y = pos.y - this.position.y;
+		newRect.color = this.currentColor;
 
 		const startX = pos.x;
 		const startY = pos.y;
@@ -331,6 +342,7 @@ export class CanvasRenderer {
 		newFreedraw.maxX = 0;
 		newFreedraw.minY = 0;
 		newFreedraw.maxY = 0;
+		newFreedraw.color = this.currentColor;
 
 		let lastPoint = { x: 0, y: 0 };
 		let lastPos = startPos;
@@ -487,7 +499,7 @@ export class CanvasRenderer {
 	}
 
 	click(ev: MouseEvent | TouchEvent) {
-		switch (this.mode) {
+		switch (this.#mode) {
 			case 'rect':
 				this.#createRect(ev);
 				break;
@@ -509,9 +521,6 @@ export class CanvasRenderer {
 	render() {
 		if (!this.ctx) return;
 		this.ctx.clearRect(0, 0, this.width, this.height);
-
-		this.ctx.fillStyle = 'red';
-		this.ctx.fillRect(this.position.x, this.position.y, 20, 20);
 		this.visibleElements.forEach((element) => {
 			element.render(this.position, this.ctx as CanvasRenderingContext2D);
 		});

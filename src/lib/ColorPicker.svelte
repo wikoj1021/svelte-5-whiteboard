@@ -18,6 +18,19 @@
 	let pickerWidth = $state(0);
 	let pickerHeight = $state(0);
 
+	const HWB_REGEX = /^hwb\((\d+(?:\.\d*)?)\s*,?\s*(\d*(?:\.\d*)?)%\s*,?\s*(\d*(?:\.\d*)?)%\s*\)$/;
+
+	$effect(() => {
+		const match = value?.match(HWB_REGEX);
+		if (!match) {
+			console.error('Invalid color provide color in hwb');
+			return;
+		}
+		hue = Number(match[1]);
+		white = Number(match[2]);
+		black = Number(match[3]);
+	});
+
 	const changeHue = (ev: MouseEvent, start: boolean, applyHue: boolean = true) => {
 		if (applyHue) hue = Math.round((ev.layerX / sliderWidth) * 360);
 		sliderActive = start;
@@ -27,8 +40,8 @@
 
 	const updatePicker = (ev: MouseEvent, start: boolean, applyValues: boolean = true) => {
 		if (applyValues) {
-			black = Math.round((ev.layerY / pickerHeight) * 100);
-			white = Math.round(Math.min(1 - ev.layerX / pickerWidth, 1 - black / 100) * 100);
+			black = (ev.layerY / pickerHeight) * 100;
+			white = (1 - ev.layerX / pickerWidth) * (100 - black);
 		}
 		onchange?.(`hwb(${hue} ${white}% ${black}%)`);
 		pickerActive = start;
@@ -37,13 +50,17 @@
 
 <div style:--hue={hue} class="wrapper">
 	<div class="picker">
-		<div class="picker-circle" style:right="{white}%" style:top="{black}%"></div>
+		<div
+			class="picker-circle"
+			style:right="{(white / (100 - black)) * 100}%"
+			style:top="{black}%"
+		></div>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class="picker-handler"
 			onmousedown={(ev) => updatePicker(ev, true)}
 			onmousemove={(ev) => updatePicker(ev, pickerActive, pickerActive)}
-			onmouseup={(ev) => updatePicker(ev, false)}
+			onmouseup={(ev) => updatePicker(ev, false, pickerActive)}
 			onmouseleave={(ev) => updatePicker(ev, false, pickerActive)}
 			bind:offsetWidth={pickerWidth}
 			bind:offsetHeight={pickerHeight}
@@ -76,12 +93,14 @@
 		background-image: linear-gradient(rgba(0, 0, 0, 0), #000),
 			linear-gradient(90deg, #fff, hwb(var(--hue) 0 0));
 		position: relative;
+		margin: 5px;
 	}
 
 	.hue {
 		height: 10px;
 		background-image: linear-gradient(to right in hwb longer hue, hwb(0 0% 2%), hwb(360 0 0));
 		position: relative;
+		margin: 5px;
 	}
 
 	.hue-circle {

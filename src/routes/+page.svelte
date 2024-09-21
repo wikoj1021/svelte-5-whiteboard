@@ -23,9 +23,13 @@
 <div popover="auto" id="picker">
 	<ColorPicker
 		onchange={(color) => {
-			if (!renderer.selectedElement) return;
+			if (!renderer.selectedElement) {
+				renderer.currentColor = color;
+				return;
+			}
 			renderer.selectedElement.color = color;
 		}}
+		value={renderer.selectedElement?.color ?? renderer.currentColor}
 	/>
 </div>
 <div class="controls">
