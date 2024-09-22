@@ -104,10 +104,10 @@ export class FreeDraw extends CanvasElement {
 	maxX = $state(0);
 	maxY = $state(0);
 
-	parsePoint(point: Point, position?: Position, reversPosition: 1 | -1 = 1) {
+	parsePoint(point: Point, position?: Position, reversePosition: 1 | -1 = 1) {
 		return {
-			x: point.x + this.start.x + (position?.x ?? 0) * reversPosition,
-			y: point.y + this.start.y + (position?.y ?? 0) * reversPosition
+			x: point.x + this.start.x + (position?.x ?? 0) * reversePosition,
+			y: point.y + this.start.y + (position?.y ?? 0) * reversePosition
 		};
 	}
 
@@ -566,6 +566,14 @@ export class CanvasRenderer {
 			case 'erase':
 				this.#erase(ev);
 				break;
+		}
+	}
+
+	zoom(ev: WheelEvent) {
+		if (ev.deltaY < 0) {
+			this.position.zoom *= (Math.abs(ev.deltaY) / 100) * 1.1;
+		} else {
+			this.position.zoom /= (Math.abs(ev.deltaY) / 100) * 1.1;
 		}
 	}
 
