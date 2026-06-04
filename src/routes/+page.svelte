@@ -9,12 +9,9 @@
 		renderer.canvas = canvas;
 	});
 
-	$inspect(renderer.position.zoom);
-
-	const modes = ['rect', 'freedraw', 'erase', 'drag', 'select'];
+	const modes = ['create', 'erase', 'drag', 'select'];
 
 	let position = $derived(modes.findIndex((mode) => mode === renderer.mode));
-	$inspect(position);
 </script>
 
 <canvas
@@ -50,12 +47,12 @@
 	</button>
 	<div style:width="12px"></div>
 	<div class="tools">
-		<button onclick={() => (renderer.mode = 'rect')}>
-			<svg width="24" height="24" viewBox="0 0 24 24">
+		<button onclick={() => (renderer.selectedShape = 'rectangle')} aria-label="rectangle">
+			<svg width="24" height="24" viewBox="0 0 24 24"> 
 				<rect x="2" y="2" width="20" height="20" fill="none" stroke="black" stroke-width="2"></rect>
 			</svg>
 		</button>
-		<button onclick={() => (renderer.mode = 'freedraw')}>
+		<button onclick={() => (renderer.selectedShape = 'freeDraw')}>
 			<img src="/icons/draw.svg" alt="draw" />
 		</button>
 		<button onclick={() => (renderer.mode = 'erase')}>
@@ -68,11 +65,11 @@
 			<img src="/icons/arrow_selector_tool.svg" alt="draw" />
 		</button>
 		<div style:width="12px"></div>
-		<button disabled={renderer.historyPosition <= 0} onclick={() => renderer.undo()}>
+		<button disabled={!renderer.history.canUndo} onclick={() => renderer.undo()}>
 			<img src="/icons/undo.svg" alt="delete" />
 		</button>
 		<button
-			disabled={renderer.historyPosition >= renderer.history.length}
+			disabled={!renderer.history.canRedo}
 			onclick={() => renderer.redo()}
 		>
 			<img src="/icons/redo.svg" alt="delete" />
@@ -145,6 +142,7 @@
 
 	button:disabled {
 		cursor: not-allowed;
+		opacity: 0.4;
 	}
 
 	.picker-preview {
